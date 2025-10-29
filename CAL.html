@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CAL</title>
+</head>
+<body>
+
+</body>
+</html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Calendar & Calculator</title>
+  <style>
+    :root{
+      --bg:#0f1724; --card:#0b1220; --muted:#9aa7bf; --accent:#60a5fa;
+      --glass: rgba(255,255,255,0.03); --success:#22c55e; --danger:#ff6b6b;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      color-scheme: dark;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#071021,#081428);color:#e6eef8}
+    .wrap{max-width:1100px;margin:26px auto;padding:18px}
+    header{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+    header h1{font-size:20px;margin:0}
+    main{display:grid;grid-template-columns:1fr 420px;gap:16px}
+    @media (max-width:980px){ main{grid-template-columns:1fr} }
+
+    /* Card */
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.03);box-shadow: 0 10px 30px rgba(2,6,23,0.6)}
+    .row{display:flex;gap:8px;align-items:center}
+    .muted{color:var(--muted);font-size:13px}
+
+    /* Calendar */
+    .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .nav-btn{background:transparent;border:1px solid rgba(255,255,255,0.05);color:inherit;padding:6px 8px;border-radius:8px;cursor:pointer}
+    .month-title{font-weight:700;font-size:18px}
+    .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+    .dow{font-size:12px;color:var(--muted);text-align:center;padding:6px 4px}
+    .day{min-height:84px;padding:6px;border-radius:8px;background:var(--glass);position:relative;overflow:hidden}
+    .day .num{position:absolute;left:8px;top:6px;font-weight:600}
+    .day.today{outline:2px solid rgba(96,165,250,0.25)}
+    .day.other{opacity:0.45}
+    .event-pill{display:inline-block;background:rgba(96,165,250,0.12);color:var(--accent);font-size:12px;padding:4px 6px;border-radius:999px;margin:6px 0;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .day-actions{position:absolute;right:6px;top:6px;font-size:12px}
+
+    /* Calculator */
+    .calc {display:flex;flex-direction:column;gap:12px}
+    .display{background:#071427;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);min-height:64px;display:flex;flex-direction:column;justify-content:center}
+    .expr{font-family:"Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;color:var(--muted);font-size:14px;word-break:break-all}
+    .value{font-family:"Roboto Mono", monospace;font-size:28px;font-weight:700}
+    .keys{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+    .key{padding:14px;border-radius:8px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.03);text-align:center;cursor:pointer;user-select:none}
+    .key.op{background:rgba(96,165,250,0.08)}
+    .key.equal{grid-column:span 2;background:var(--accent);color:#072033;font-weight:700}
+    .history{max-height:240px;overflow:auto;padding:8px;border-radius:8px;border:1px dashed rgba(255,255,255,0.03);background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent)}
+    .hist-item{display:flex;justify-content:space-between;padding:6px 8px;border-radius:6px;margin-bottom:6px;background:rgba(255,255,255,0.01)}
+    .small{font-size:13px;color:var(--muted)}
+
+    /* Modal */
+    .modal-backdrop{position:fixed;inset:0;background:rgba(2,6,23,0.6);display:flex;align-items:center;justify-content:center;z-index:40}
+    .modal{width:420px;max-width:95%;background:var(--card);padding:14px;border-radius:10px;border:1px solid rgba(255,255,255,0.04)}
+    label{display:block;font-size:13px;margin-bottom:6px}
+    input,textarea,select{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+    .btn{padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.05);background:transparent;cursor:pointer}
+    .btn.primary{background:linear-gradient(90deg, rgba(96,165,250,0.12), rgba(96,165,250,0.06));border-color:var(--accent)}
+    footer{margin-top:12px;color:var(--muted);font-size:13px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Calendar & Calculator</h1>
+      <div class="muted">A small productivity widget — add events (localStorage) and compute quickly</div>
+    </header>
+
+    <main>
+      <!-- Calendar -->
+      <section class="card" aria-labelledby="calendarHeading">
+        <div class="cal-header">
+          <div>
+            <div class="month-title" id="calendarHeading"></div>
+            <div class="muted" id="calendarSubtitle"></div>
+          </div>
+          <div class="row">
+            <button class="nav-btn" id="prevMonth" title="Previous month">◀</button>
+            <button class="nav-btn" id="todayBtn" title="Go to today">Today</button>
+            <button class="nav-btn" id="nextMonth" title="Next month">▶</button>
+          </div>
+        </div>
+
+        <div class="cal-grid" id="calGrid" role="grid" aria-label="Month calendar">
+          <!-- headers and days filled by JS -->
+        </div>
+
+        <footer>
+          Click a date to view/add events. Events are saved locally in your browser (localStorage).
+        </footer>
+      </section>
+
+      <!-- Calculator -->
+      <aside class="card">
+        <div class="calc" aria-labelledby="calcHeading">
+          <div id="calcHeading" style="font-weight:700;margin-bottom:8px">Calculator</div>
+          <div class="display" id="display" role="region" aria-live="polite">
+            <div class="expr" id="expr">&nbsp;</div>
+            <div class="value" id="value">0</div>
+          </div>
+
+          <div style="margin-top:8px" class="small">Keyboard: digits, + - * / % ( ) Backspace Enter</div>
+
+          <div class="keys" id="keys" style="margin-top:12px">
+            <div class="key" data-key="7">7</div>
+            <div class="key" data-key="8">8</div>
+            <div class="key" data-key="9">9</div>
+            <div class="key op" data-key="/">÷</div>
+
+            <div class="key" data-key="4">4</div>
+            <div class="key" data-key="5">5</div>
+            <div class="key" data-key="6">6</div>
+            <div class="key op" data-key="*">×</div>
+
+            <div class="key" data-key="1">1</div>
+            <div class="key" data-key="2">2</div>
+            <div class="key" data-key="3">3</div>
+            <div class="key op" data-key="-">−</div>
+
+            <div class="key" data-key="0">0</div>
+            <div class="key" data-key=".">.</div>
+            <div class="key" data-key="(">(</div>
+            <div class="key op" data-key="+">+</div>
+
+            <div class="key" data-key="C">C</div>
+            <div class="key" data-key="CE">CE</div>
+            <div class="key" data-key="=" class="equal">=</div>
+            <div class="key" data-key="Back">⌫</div>
+          </div>
+
+          <div style="margin-top:12px;font-weight:700">History</div>
+          <div class="history" id="history" aria-live="polite"></div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <!-- Modal for event add/edit -->
+  <div id="modalRoot" style="display:none"></div>
+
+  <script>
+    /* ------------------------
+       Calendar logic
+       ------------------------ */
+    (function(){
+      const calGrid = document.getElementById('calGrid');
+      const monthTitle = document.getElementById('calendarHeading');
+      const calSub = document.getElementById('calendarSubtitle');
+      const prevBtn = document.getElementById('prevMonth');
+      const nextBtn = document.getElementById('nextMonth');
+      const todayBtn = document.getElementById('todayBtn');
+      const modalRoot = document.getElementById('modalRoot');
+
+      const WEEKDAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      let viewDate = new Date(); // current displayed month
+      const STORAGE_KEY = 'cc.events.v1';
+
+      function loadEvents() {
+        try {
+          return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+        } catch(e) { return {}; }
+      }
+      function saveEvents(events) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+      }
+
+      function formatDateKey(d) {
+        const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+        return `${y}-${m}-${day}`;
+      }
+
+      function eventsFor(date) {
+        const ev = loadEvents();
+        return ev[formatDateKey(date)] || [];
+      }
+
+      function addEventTo(date, obj) {
+        const ev = loadEvents();
+        const key = formatDateKey(date);
+        ev[key] = ev[key] || [];
+        ev[key].push(obj);
+        saveEvents(ev);
+      }
+
+      function removeEventFrom(date, idx) {
+        const ev = loadEvents();
+        const key = formatDateKey(date);
+        if(!ev[key]) return;
+        ev[key].splice(idx,1);
+        if(ev[key].length===0) delete ev[key];
+        saveEvents(ev);
+      }
+
+      function buildCalendar() {
+        calGrid.innerHTML = '';
+        // header row weekdays
+        WEEKDAYS.forEach(dow => {
+          const h = document.createElement('div');
+          h.className = 'dow';
+          h.textContent = dow;
+          calGrid.appendChild(h);
+        });
+
+        const year = viewDate.getFullYear();
+        const month = viewDate.getMonth();
+
+        monthTitle.textContent = viewDate.toLocaleString(undefined, {month:'long', year:'numeric'});
+        calSub.textContent = `Today: ${new Date().toLocaleDateString()}`;
+
+        // first day of month
+        const first = new Date(year, month, 1);
+        const startDay = first.getDay();
+        const daysInMonth = new Date(year, month+1, 0).getDate();
+        // previous month days for leading blanks
+        const prevDays = new Date(year, month, 0).getDate();
+
+        // total cells = 7 * number of rows (we'll render 42 cells to keep fixed grid)
+        for(let i=0;i<42;i++){
+          const cell = document.createElement('div');
+          cell.className = 'day';
+          const cellIndex = i - startDay + 1;
+          let cellDate;
+          if(i < startDay) {
+            // previous month
+            const d = prevDays - (startDay - 1 - i);
+            cellDate = new Date(year, month-1, d);
+            cell.classList.add('other');
+          } else if (cellIndex > daysInMonth) {
+            // next month
+            const d = cellIndex - daysInMonth;
+            cellDate = new Date(year, month+1, d);
+            cell.classList.add('other');
+          } else {
+            cellDate = new Date(year, month, cellIndex);
+          }
+
+          const num = document.createElement('div');
+          num.className = 'num';
+          num.textContent = cellDate.getDate();
+          cell.appendChild(num);
+
+          // actions
+          const act = document.createElement('div');
+          act.className = 'day-actions';
+          act.innerHTML = `<button class="nav-btn" title="Add event">+</button>`;
+          act.querySelector('button').addEventListener('click', (e) => {
+            e.stopPropagation();
+            openEventModal(cellDate);
+          });
+          cell.appendChild(act);
+
+          // events preview (max 2)
+          const evs = eventsFor(cellDate);
+          evs.slice(0,2).forEach(ev => {
+            const p = document.createElement('div');
+            p.className = 'event-pill';
+            p.title = ev.title + (ev.note ? (' — '+ev.note) : '');
+            p.textContent = ev.title;
+            cell.appendChild(p);
+          });
+
+          // highlight today
+          const today = new Date();
+          if(cellDate.getFullYear()===today.getFullYear() && cellDate.getMonth()===today.getMonth() && cellDate.getDate()===today.getDate()){
+            cell.classList.add('today');
+          }
+
+          // click to view events
+          cell.addEventListener('click', () => openDayView(cellDate));
+          calGrid.appendChild(cell);
+        }
+      }
+
+      function openEventModal(date) {
+        showModal(`
+          <div style="font-weight:700;margin-bottom:8px">Add event — ${date.toDateString()}</div>
+          <label>Title</label>
+          <input id="evTitle" />
+          <label style="margin-top:8px">Note</label>
+          <textarea id="evNote" rows="4"></textarea>
+          <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+            <button class="btn" id="cancelBtn">Cancel</button>
+            <button class="btn primary" id="saveBtn">Save</button>
+          </div>
+        `);
+
+        document.getElementById('cancelBtn').addEventListener('click', closeModal);
+        document.getElementById('saveBtn').addEventListener('click', () => {
+          const t = document.getElementById('evTitle').value.trim();
+          const n = document.getElementById('evNote').value.trim();
+          if(!t){ alert('Title required'); return; }
+          addEventTo(date, {title:t, note:n, createdAt: new Date().toISOString()});
+          closeModal();
+          buildCalendar();
+        });
+      }
+
+      function openDayView(date) {
+        const evs = eventsFor(date);
+        const rows = evs.map((ev,i)=>`
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:8px;border-radius:8px;margin-bottom:8px;background:rgba(255,255,255,0.01)">
+            <div style="flex:1">
+              <div style="font-weight:700">${escapeHtml(ev.title)}</div>
+              <div class="small" style="margin-top:6px">${escapeHtml(ev.note || '')}</div>
+              <div class="small muted" style="margin-top:6px">Added: ${new Date(ev.createdAt).toLocaleString()}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;margin-left:8px">
+              <button class="btn" data-action="del" data-idx="${i}">Delete</button>
+            </div>
+          </div>
+        `).join('') || '<div class="muted">No events for this date. Click + to add one.</div>';
+
+        showModal(`
+          <div style="font-weight:700;margin-bottom:8px">${date.toDateString()}</div>
+          <div>${rows}</div>
+          <div style="display:flex;gap:8px;margin-top:8px;justify-content:flex-end">
+            <button class="btn" id="closeView">Close</button>
+            <button class="btn primary" id="addNew">Add Event</button>
+          </div>
+        `);
+
+        document.getElementById('closeView').addEventListener('click', closeModal);
+        document.getElementById('addNew').addEventListener('click', () => { closeModal(); openEventModal(date); });
+
+        // attach delete handlers
+        modalRoot.querySelectorAll('button[data-action="del"]').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const idx = parseInt(btn.getAttribute('data-idx'),10);
+            if(confirm('Delete this event?')) {
+              removeEventFrom(date, idx);
+              closeModal();
+              buildCalendar();
+            }
+          });
+        });
+      }
+
+      function showModal(innerHTML) {
+        modalRoot.innerHTML = '';
+        const backdrop = document.createElement('div');
+        backdrop.className = 'modal-backdrop';
+        backdrop.innerHTML = `<div class="modal">${innerHTML}</div>`;
+        backdrop.addEventListener('click', (e)=>{ if(e.target===backdrop) closeModal(); });
+        modalRoot.appendChild(backdrop);
+        modalRoot.style.display = 'block';
+        // focus first input if present
+        setTimeout(()=> {
+          const input = modalRoot.querySelector('input,textarea,button');
+          if(input) input.focus();
+        },60);
+      }
+
+      function closeModal(){ modalRoot.innerHTML=''; modalRoot.style.display='none'; }
+
+      function escapeHtml(s){ return s.replace(/[&<>"']/g, (m)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[m]); }
+
+      // navigation
+      prevBtn.addEventListener('click', ()=>{ viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth()-1, 1); buildCalendar(); });
+      nextBtn.addEventListener('click', ()=>{ viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth()+1, 1); buildCalendar(); });
+      todayBtn.addEventListener('click', ()=>{ viewDate = new Date(); buildCalendar(); });
+
+      // initial
+      buildCalendar();
+      // update once a minute to keep "today" consistent
+      setInterval(buildCalendar, 60*1000);
+    })();
+
+    /* ------------------------
+       Calculator logic
+       ------------------------ */
+    (function(){
+      const exprEl = document.getElementById('expr');
+      const valEl = document.getElementById('value');
+      const keys = document.getElementById('keys');
+      const historyEl = document.getElementById('history');
+
+      let expr = '';
+      let lastResult = null;
+      const HISTORY_KEY = 'cc.calc.history.v1';
+
+      function loadHistory(){ try{return JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]')}catch(e){return[]} }
+      function saveHistory(h){ localStorage.setItem(HISTORY_KEY, JSON.stringify(h)) }
+
+      function renderHistory(){
+        const h = loadHistory();
+        historyEl.innerHTML = h.slice().reverse().map(it => `
+          <div class="hist-item">
+            <div style="flex:1">
+              <div style="font-weight:700">${escapeHtml(it.expr)}</div>
+              <div class="small muted">${escapeHtml(String(it.result))}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <button class="btn" data-r="use" data-ex="${encodeURIComponent(it.expr)}">Use</button>
+            </div>
+          </div>
+        `).join('');
+        // attach use handlers
+        historyEl.querySelectorAll('button[data-r="use"]').forEach(b=>{
+          b.addEventListener('click', ()=>{
+            expr = decodeURIComponent(b.getAttribute('data-ex'));
+            updateExpr();
+          });
+        });
+      }
+
+      function escapeHtml(s){ return String(s).replace(/[&<>"']/g, (m)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[m]); }
+
+      function updateExpr(){
+        exprEl.textContent = expr || '\u00A0';
+        try {
+          const v = safeEval(expr);
+          valEl.textContent = typeof v === 'number' && isFinite(v) ? formatNumber(v) : (v===undefined ? '0' : String(v));
+        } catch(e){
+          valEl.textContent = 'Error';
+        }
+      }
+
+      function formatNumber(n){
+        // show up to 10 significant digits, avoid scientific for small
+        if(Math.abs(n) < 1e12) return String(Number(n.toPrecision(12))).replace(/\.0+$/,'').replace(/(\.\d*?)0+$/,'$1');
+        return String(n);
+      }
+
+      // Safe evaluator: allow digits, whitespace, + - * / % . and parentheses only
+      function safeEval(s){
+        if(!s) return 0;
+        // Replace Unicode multiplication/division signs if user pasted them
+        s = s.replace(/[×✕✖]/g,'*').replace(/[÷]/g,'/').trim();
+        if(!/^[0-9+\-*/%().\s]+$/.test(s)) throw new Error('Invalid characters');
+        // Prevent sequences like "*/" or repeated operators at start (but allow unary minus)
+        if(/[+\-*/%]{2,}/.test(s.replace(/^\-/,''))) {
+          // allow things like "3*-2" by keeping minus if after operator; basic check only
+        }
+        // eslint-disable-next-line no-new-func
+        return Function('"use strict";return ('+s+')')();
+      }
+
+      // keys interaction
+      keys.addEventListener('click', (e)=>{
+        const btn = e.target.closest('.key');
+        if(!btn) return;
+        const k = btn.getAttribute('data-key');
+        handleKey(k);
+      });
+
+      // keyboard
+      window.addEventListener('keydown', (e)=>{
+        if(e.key === 'Enter') { e.preventDefault(); handleKey('='); return; }
+        if(e.key === 'Backspace') { handleKey('Back'); return; }
+        if(e.key === 'Escape') { handleKey('C'); return; }
+        if(e.key === 'Delete') { handleKey('CE'); return; }
+        // allow digits and operators
+        if(/^[0-9+\-*/%().]$/.test(e.key)) {
+          handleKey(e.key);
+        }
+      });
+
+      function handleKey(k){
+        if(k === 'C'){ expr=''; lastResult=null; updateExpr(); return; }
+        if(k === 'CE'){ expr = expr.slice(0, -1); updateExpr(); return; }
+        if(k === 'Back'){ expr = expr.slice(0,-1); updateExpr(); return; }
+        if(k === '='){
+          try {
+            const result = safeEval(expr);
+            lastResult = result;
+            // push to history
+            const h = loadHistory();
+            h.push({expr: expr || '0', result});
+            if(h.length > 200) h.shift();
+            saveHistory(h);
+            renderHistory();
+            expr = String(result);
+            updateExpr();
+          } catch(e){
+            valEl.textContent = 'Error';
+          }
+          return;
+        }
+        // regular char
+        expr += k;
+        updateExpr();
+      }
+
+      // init
+      updateExpr();
+      renderHistory();
+    })();
+  </script>
+</body>
+</html>
